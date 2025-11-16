@@ -27,6 +27,7 @@ Prototype stack for uploading demolition intelligence, running a synthetic AI al
    python -m http.server 5173
    ```
 2. Open http://localhost:5173 and submit the form. The UI streams files to the backend, renders analytics cards, and shows a 3D voxelised interpretation of the pieces.
+3. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
 
 ## Algorithm mock
 The backend produces:

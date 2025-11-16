@@ -6,6 +6,8 @@ from typing import List
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 from algorithm.processor import AlgorithmProcessor, ProjectInputs, UploadedFileMeta
 
@@ -78,6 +80,7 @@ async def process_project(
     )
 
     result = processor.process(inputs)
+    return JSONResponse(jsonable_encoder(result))
     return result
 
 
