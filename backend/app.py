@@ -81,6 +81,7 @@ async def process_project(
 
     result = processor.process(inputs)
     return JSONResponse(jsonable_encoder(result))
+    return result
 
 
 @app.get("/api/health")

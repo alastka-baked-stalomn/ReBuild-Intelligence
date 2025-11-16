@@ -110,12 +110,29 @@ form.addEventListener('submit', async (event) => {
 
   try {
     const response = await fetch(`${apiBase}/api/process`, {
+  const assetInput = form.querySelector('input[name="asset_files"]');
+  const scanInput = form.querySelector('input[name="scan_files"]');
+
+  if (assetInput?.files) {
+    for (const file of assetInput.files) {
+      formData.append('asset_files', file);
+    }
+  }
+  if (scanInput?.files) {
+    for (const file of scanInput.files) {
+      formData.append('scan_files', file);
+    }
+  }
+
+  try {
+    const response = await fetch('http://localhost:8000/api/process', {
       method: 'POST',
       body: formData,
     });
     if (!response.ok) {
       const message = await response.text();
       throw new Error(message || 'API error');
+      throw new Error('API error');
     }
     const data = await response.json();
     statusEl.textContent = 'Simulation ready';
@@ -125,5 +142,9 @@ form.addEventListener('submit', async (event) => {
     console.error(error);
     statusEl.textContent =
       'Failed to reach backend. Check server logs. ' + (error instanceof Error ? error.message : '');
+    addPieces(data.piece_plans);
+  } catch (error) {
+    console.error(error);
+    statusEl.textContent = 'Failed to reach backend. Check server logs.';
   }
 });
