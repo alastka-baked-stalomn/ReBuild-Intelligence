@@ -1,6 +1,8 @@
 const form = document.getElementById('project-form');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
+const apiBase =
+  document.body.dataset.apiBase || `${window.location.protocol}//${window.location.hostname}:8000`;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
@@ -105,34 +107,23 @@ form.addEventListener('submit', async (event) => {
   resultsEl.innerHTML = '';
 
   const formData = new FormData(form);
-  const assetInput = form.querySelector('input[name="asset_files"]');
-  const scanInput = form.querySelector('input[name="scan_files"]');
-
-  if (assetInput?.files) {
-    for (const file of assetInput.files) {
-      formData.append('asset_files', file);
-    }
-  }
-  if (scanInput?.files) {
-    for (const file of scanInput.files) {
-      formData.append('scan_files', file);
-    }
-  }
 
   try {
-    const response = await fetch('http://localhost:8000/api/process', {
+    const response = await fetch(`${apiBase}/api/process`, {
       method: 'POST',
       body: formData,
     });
     if (!response.ok) {
-      throw new Error('API error');
+      const message = await response.text();
+      throw new Error(message || 'API error');
     }
     const data = await response.json();
     statusEl.textContent = 'Simulation ready';
     renderCards(data);
-    addPieces(data.piece_plans);
+    addPieces(data.piece_plans || []);
   } catch (error) {
     console.error(error);
-    statusEl.textContent = 'Failed to reach backend. Check server logs.';
+    statusEl.textContent =
+      'Failed to reach backend. Check server logs. ' + (error instanceof Error ? error.message : '');
   }
 });
