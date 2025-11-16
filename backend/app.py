@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import List
+
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+
+from algorithm.processor import AlgorithmProcessor, ProjectInputs, UploadedFileMeta
+
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+app = FastAPI(title="ReBuild Intelligence API", description="Material reuse planning service")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+processor = AlgorithmProcessor()
+
+
+def _save_files(files: List[UploadFile], subdir: str) -> List[UploadedFileMeta]:
+    saved: List[UploadedFileMeta] = []
+    target_dir = UPLOAD_DIR / subdir
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    for file in files:
+        if not file:
+            continue
+        contents = file.file.read()
+        path = target_dir / file.filename
+        with open(path, "wb") as f:
+            f.write(contents)
+        saved.append(
+            UploadedFileMeta(
+                filename=file.filename,
+                content_type=file.content_type or "application/octet-stream",
+                size_kb=round(len(contents) / 1024, 2),
+            )
+        )
+    return saved
+
+
+@app.post("/api/process")
+async def process_project(
+    project_name: str = Form(...),
+    description: str = Form(...),
+    transport_plan: str = Form(""),
+    human_built: str = Form("true"),
+    site_location: str = Form(""),
+    soil_profile: str = Form(""),
+    hazard_profile: str = Form(""),
+    demolition_notes: str = Form(""),
+    lidar_notes: str = Form(""),
+    asset_files: List[UploadFile] = File(default_factory=list),
+    scan_files: List[UploadFile] = File(default_factory=list),
+):
+    asset_meta = _save_files(asset_files, "assets")
+    scan_meta = _save_files(scan_files, "scans")
+
+    inputs = ProjectInputs(
+        project_name=project_name,
+        description=description,
+        transport_plan=transport_plan,
+        human_built=human_built.lower() in {"true", "1", "yes"},
+        site_location=site_location,
+        soil_profile=soil_profile,
+        hazard_profile=hazard_profile,
+        demolition_notes=demolition_notes,
+        lidar_notes=lidar_notes,
+        files=asset_meta,
+        scans=scan_meta,
+    )
+
+    result = processor.process(inputs)
+    return result
+
+
+@app.get("/api/health")
+async def health() -> dict:
+    return {"status": "ok"}

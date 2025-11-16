@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReBuild Intelligence</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>ReBuild Intelligence</h1>
+      <p>Upload demolition intel and get adaptive reuse recommendations in minutes.</p>
+    </header>
+
+    <main>
+      <section class="input-panel">
+        <form id="project-form">
+          <div class="field-group">
+            <label>Project name</label>
+            <input type="text" name="project_name" required />
+          </div>
+          <div class="field-group">
+            <label>Building description</label>
+            <textarea name="description" rows="4" required placeholder="Architectural intent, transport plan, robotic constraints..."></textarea>
+          </div>
+          <div class="field-grid">
+            <div>
+              <label>Transport & logistics</label>
+              <input type="text" name="transport_plan" placeholder="Conveyor belts, trucks, rail" />
+            </div>
+            <div>
+              <label>Human built?</label>
+              <select name="human_built">
+                <option value="true" selected>Yes</option>
+                <option value="false">Mostly robotic</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div>
+              <label>Site location</label>
+              <input type="text" name="site_location" placeholder="City, region" />
+            </div>
+            <div>
+              <label>Soil profile</label>
+              <input type="text" name="soil_profile" placeholder="Rock, clay, liquefaction risk" />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Hazard profile</label>
+            <input type="text" name="hazard_profile" placeholder="Earthquake, flood, hurricane" />
+          </div>
+          <div class="field-group">
+            <label>Demolition & material info</label>
+            <textarea name="demolition_notes" rows="3" placeholder="Selective demolition, concrete, brick, timber"></textarea>
+          </div>
+          <div class="field-group">
+            <label>LiDAR and scan notes</label>
+            <textarea name="lidar_notes" rows="2"></textarea>
+          </div>
+
+          <div class="field-group">
+            <label>Upload assets (photos, plans, PDFs)</label>
+            <input type="file" name="asset_files" multiple />
+          </div>
+          <div class="field-group">
+            <label>Upload LiDAR / scan files</label>
+            <input type="file" name="scan_files" multiple />
+          </div>
+
+          <button type="submit">Run algorithm</button>
+        </form>
+      </section>
+
+      <section class="results-panel">
+        <div id="status"></div>
+        <div class="results" id="results"></div>
+        <div class="canvas-wrapper">
+          <canvas id="scene"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Prototype for robotic reuse planning &mdash; includes CO₂ and cost analytics.</p>
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+</html>
