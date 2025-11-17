@@ -30,13 +30,12 @@ Prototype stack for uploading demolition intelligence, running a synthetic AI al
 3. Use the “Load test data” button if you just want to pre-fill the form with representative demo metadata before running the algorithm. The header also shows the current build version so it is obvious which frontend bundle you are running.
 4. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
 
-## Algorithm pipeline
-The backend now runs a richer synthetic + AI pipeline:
+## Algorithm mock
+The backend now runs a richer synthetic pipeline:
 - Center of mass, waste and reuse score per salvaged piece, plus detailed KUKA cutting plans.
 - Material feasibility reasoning that flags which elements can be reclaimed, which must be new (e.g. adaptive roofs), and how to tweak plans to increase recycled share.
 - Natural disaster simulations paired with sound/light pollution estimates so you can judge flood, wind, noise, and glare constraints.
 - Structural analytics augmented with deterministic finite element outputs (node stresses, displacement, utilisation).
 - Full cost, carbon, and CO₂ savings accounting including the value of reclaimed stock.
-- A real OpenAI Responses API call (`gpt-4.1-mini` by default) that synthesises engineering feasibility notes, KUKA handling recommendations, reuse critiques, disaster mitigation plans, and carbon/cost commentary using the deterministic metrics above.
 
-Numerical simulations remain deterministic which keeps demos consistent, while the AI reasoning is non-deterministic. Export `OPENAI_API_KEY` (and optionally override `OPENAI_MODEL`) before running the backend so the `/api/process` route can call the model.
+All calculations remain deterministic which keeps demos consistent even while we fake AI-driven intelligence.
