@@ -20,6 +20,25 @@ footer {
   box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.version-tag {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9bd6ff;
+  background: rgba(24, 48, 92, 0.6);
+}
+
 main {
   flex: 1;
   display: grid;
@@ -67,7 +86,6 @@ section {
 }
 
 button {
-  width: 100%;
   padding: 0.85rem;
   border-radius: 999px;
   border: none;
@@ -81,6 +99,16 @@ button {
 button:hover {
   transform: translateY(-1px);
   box-shadow: 0 15px 30px rgba(48, 119, 255, 0.4);
+}
+
+.button-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.button-row button {
+  flex: 1 1 180px;
 }
 
 .results-panel {

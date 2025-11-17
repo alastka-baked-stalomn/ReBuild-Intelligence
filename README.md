@@ -27,13 +27,16 @@ Prototype stack for uploading demolition intelligence, running a synthetic AI al
    python -m http.server 5173
    ```
 2. Open http://localhost:5173 and submit the form. The UI streams files to the backend, renders analytics cards, and shows a 3D voxelised interpretation of the pieces.
-3. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
+3. Use the “Load test data” button if you just want to pre-fill the form with representative demo metadata before running the algorithm. The header also shows the current build version so it is obvious which frontend bundle you are running.
+4. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
 
-## Algorithm mock
-The backend produces:
-- Center of mass + cutting plans per piece.
-- Simulated KUKA robot slicing instructions with conveyor timing hints.
-- Disaster, pollution, and structural summaries driven by the provided metadata.
-- Cost, carbon, and recommendations for maximising recycled share.
+## Algorithm pipeline
+The backend now runs a richer synthetic + AI pipeline:
+- Center of mass, waste and reuse score per salvaged piece, plus detailed KUKA cutting plans.
+- Material feasibility reasoning that flags which elements can be reclaimed, which must be new (e.g. adaptive roofs), and how to tweak plans to increase recycled share.
+- Natural disaster simulations paired with sound/light pollution estimates so you can judge flood, wind, noise, and glare constraints.
+- Structural analytics augmented with deterministic finite element outputs (node stresses, displacement, utilisation).
+- Full cost, carbon, and CO₂ savings accounting including the value of reclaimed stock.
+- A real OpenAI Responses API call (`gpt-4.1-mini` by default) that synthesises engineering feasibility notes, KUKA handling recommendations, reuse critiques, disaster mitigation plans, and carbon/cost commentary using the deterministic metrics above.
 
-All calculations are deterministic, enabling consistent demos for the final presentation with styrofoam pieces, LiDAR scans, and randomly cut blocks.
+Numerical simulations remain deterministic which keeps demos consistent, while the AI reasoning is non-deterministic. Export `OPENAI_API_KEY` (and optionally override `OPENAI_MODEL`) before running the backend so the `/api/process` route can call the model.

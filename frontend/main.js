@@ -1,8 +1,15 @@
+const APP_VERSION = 'v0.5.0';
 const form = document.getElementById('project-form');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
+const versionEl = document.getElementById('app-version');
+const testButton = document.getElementById('load-test-data');
 const apiBase =
   document.body.dataset.apiBase || `${window.location.protocol}//${window.location.hostname}:8000`;
+
+if (versionEl) {
+  versionEl.textContent = APP_VERSION;
+}
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
@@ -59,14 +66,32 @@ renderLoop();
 
 function renderCards(result) {
   resultsEl.innerHTML = '';
+  const reuse = result.reuse_breakdown || {};
+  const feasibility = result.material_feasibility || {};
+  const env = result.environmental_impact || result.pollution_model || {};
+  const fea = result.finite_element_analysis || {};
+  const cost = result.cost_and_carbon || {};
+  const aiSummary = (result.ai_engineering || '').replace(/\n/g, '<br />');
   const segments = [
     {
       title: 'Summary',
       content: `<strong>${result.project_name}</strong>: ${result.summary}`,
     },
     {
+      title: 'AI Engineering Intelligence',
+      content:
+        aiSummary ||
+        'AI reasoning unavailable. Ensure the backend has OPENAI_API_KEY configured so GPT output can be generated.',
+    },
+    {
       title: 'Reuse breakdown',
-      content: `Reused: ${result.reuse_breakdown.reused_pct}% | New: ${result.reuse_breakdown.new_pct}% | CO₂ saved: ${result.cost_and_carbon.co2_saved_tons} t`,
+      content: `Reused: ${reuse.reused_pct}% | New: ${reuse.new_pct}% | Roof new: ${reuse.roof_new_pct}%`,
+    },
+    {
+      title: 'Material feasibility',
+      content: `Reusable: ${(feasibility.reusable_components || []).join(', ') || 'TBD'}<br />
+        Needs new: ${(feasibility.needs_new_components || []).join(', ') || 'Minimal'}<br />
+        Suggested changes: ${(feasibility.suggested_plan_changes || []).join(' • ')}`,
     },
     {
       title: 'Simulations',
@@ -79,6 +104,26 @@ function renderCards(result) {
       content: Object.entries(result.structural_analysis)
         .map(([k, v]) => `<div>${k}: <strong>${v}</strong></div>`)
         .join(''),
+    },
+    {
+      title: 'Finite element analysis',
+      content: Object.entries(fea)
+        .map(([k, v]) => `<div>${k}: <strong>${v}</strong></div>`)
+        .join(''),
+    },
+    {
+      title: 'Environmental impact (sound + light)',
+      content: Object.entries(env)
+        .map(([k, v]) => `<div>${k}: <strong>${v}</strong></div>`)
+        .join(''),
+    },
+    {
+      title: 'Cost & carbon analysis',
+      content: `<div>Baseline: $${cost.baseline_cost}</div>
+        <div>Reclaimed savings: $${cost.reclaimed_savings}</div>
+        <div>Net cost: $${cost.net_cost}</div>
+        <div>CO₂ saved: ${cost.co2_saved_tons} t</div>
+        <div>Recycled material value: $${cost.recycled_material_value}</div>`,
     },
     {
       title: 'Recommendations',
@@ -101,15 +146,39 @@ function renderCards(result) {
   resultsEl.appendChild(cuttingCard);
 }
 
+if (testButton) {
+  const demoPayload = {
+    project_name: 'Circular Habitat Test',
+    description:
+      'Adaptive reuse of roman-influenced civic hall using mixed masonry and timber bays. KUKA cells available.',
+    transport_plan: 'Hybrid trucks + conveyor shuttles',
+    human_built: 'true',
+    site_location: 'Amsterdam, NL',
+    soil_profile: 'Dense rock with shallow aquifer',
+    hazard_profile: 'Flood + storm surge',
+    demolition_notes:
+      'Selective demo with concrete shear walls, salvaged brick, structural timber trusses ready for scanning.',
+    lidar_notes: 'High-resolution LiDAR sweep (5mm) completed Oct 2025; includes void mapping.',
+  };
+
+  testButton.addEventListener('click', () => {
+    Object.entries(demoPayload).forEach(([name, value]) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      if (!field) return;
+      if (field.tagName === 'SELECT' || field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
+        field.value = value;
+      }
+    });
+    statusEl.textContent = 'Loaded representative test data. Adjust if needed, then run the algorithm.';
+  });
+}
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   statusEl.textContent = 'Uploading + running simulations...';
   resultsEl.innerHTML = '';
 
   const formData = new FormData(form);
-
-  try {
-    const response = await fetch(`${apiBase}/api/process`, {
   const assetInput = form.querySelector('input[name="asset_files"]');
   const scanInput = form.querySelector('input[name="scan_files"]');
 
@@ -125,14 +194,13 @@ form.addEventListener('submit', async (event) => {
   }
 
   try {
-    const response = await fetch('http://localhost:8000/api/process', {
+    const response = await fetch(`${apiBase}/api/process`, {
       method: 'POST',
       body: formData,
     });
     if (!response.ok) {
       const message = await response.text();
       throw new Error(message || 'API error');
-      throw new Error('API error');
     }
     const data = await response.json();
     statusEl.textContent = 'Simulation ready';
@@ -140,11 +208,7 @@ form.addEventListener('submit', async (event) => {
     addPieces(data.piece_plans || []);
   } catch (error) {
     console.error(error);
-    statusEl.textContent =
-      'Failed to reach backend. Check server logs. ' + (error instanceof Error ? error.message : '');
-    addPieces(data.piece_plans);
-  } catch (error) {
-    console.error(error);
-    statusEl.textContent = 'Failed to reach backend. Check server logs.';
+    const message = error instanceof Error ? error.message : '';
+    statusEl.textContent = `Failed to reach backend. ${message}`.trim();
   }
 });
