@@ -59,6 +59,11 @@ renderLoop();
 
 function renderCards(result) {
   resultsEl.innerHTML = '';
+  const reuse = result.reuse_breakdown || {};
+  const feasibility = result.material_feasibility || {};
+  const env = result.environmental_impact || result.pollution_model || {};
+  const fea = result.finite_element_analysis || {};
+  const cost = result.cost_and_carbon || {};
   const segments = [
     {
       title: 'Summary',
@@ -66,7 +71,13 @@ function renderCards(result) {
     },
     {
       title: 'Reuse breakdown',
-      content: `Reused: ${result.reuse_breakdown.reused_pct}% | New: ${result.reuse_breakdown.new_pct}% | CO₂ saved: ${result.cost_and_carbon.co2_saved_tons} t`,
+      content: `Reused: ${reuse.reused_pct}% | New: ${reuse.new_pct}% | Roof new: ${reuse.roof_new_pct}%`,
+    },
+    {
+      title: 'Material feasibility',
+      content: `Reusable: ${(feasibility.reusable_components || []).join(', ') || 'TBD'}<br />
+        Needs new: ${(feasibility.needs_new_components || []).join(', ') || 'Minimal'}<br />
+        Suggested changes: ${(feasibility.suggested_plan_changes || []).join(' • ')}`,
     },
     {
       title: 'Simulations',
@@ -79,6 +90,26 @@ function renderCards(result) {
       content: Object.entries(result.structural_analysis)
         .map(([k, v]) => `<div>${k}: <strong>${v}</strong></div>`)
         .join(''),
+    },
+    {
+      title: 'Finite element analysis',
+      content: Object.entries(fea)
+        .map(([k, v]) => `<div>${k}: <strong>${v}</strong></div>`)
+        .join(''),
+    },
+    {
+      title: 'Environmental impact (sound + light)',
+      content: Object.entries(env)
+        .map(([k, v]) => `<div>${k}: <strong>${v}</strong></div>`)
+        .join(''),
+    },
+    {
+      title: 'Cost & carbon analysis',
+      content: `<div>Baseline: $${cost.baseline_cost}</div>
+        <div>Reclaimed savings: $${cost.reclaimed_savings}</div>
+        <div>Net cost: $${cost.net_cost}</div>
+        <div>CO₂ saved: ${cost.co2_saved_tons} t</div>
+        <div>Recycled material value: $${cost.recycled_material_value}</div>`,
     },
     {
       title: 'Recommendations',

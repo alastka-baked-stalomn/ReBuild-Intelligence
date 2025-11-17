@@ -30,10 +30,11 @@ Prototype stack for uploading demolition intelligence, running a synthetic AI al
 3. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
 
 ## Algorithm mock
-The backend produces:
-- Center of mass + cutting plans per piece.
-- Simulated KUKA robot slicing instructions with conveyor timing hints.
-- Disaster, pollution, and structural summaries driven by the provided metadata.
-- Cost, carbon, and recommendations for maximising recycled share.
+The backend now runs a richer synthetic pipeline:
+- Center of mass, waste and reuse score per salvaged piece, plus detailed KUKA cutting plans.
+- Material feasibility reasoning that flags which elements can be reclaimed, which must be new (e.g. adaptive roofs), and how to tweak plans to increase recycled share.
+- Natural disaster simulations paired with sound/light pollution estimates so you can judge flood, wind, noise, and glare constraints.
+- Structural analytics augmented with deterministic finite element outputs (node stresses, displacement, utilisation).
+- Full cost, carbon, and CO₂ savings accounting including the value of reclaimed stock.
 
-All calculations are deterministic, enabling consistent demos for the final presentation with styrofoam pieces, LiDAR scans, and randomly cut blocks.
+All calculations remain deterministic which keeps demos consistent even while we fake AI-driven intelligence.
