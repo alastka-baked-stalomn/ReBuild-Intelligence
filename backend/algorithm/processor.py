@@ -5,8 +5,10 @@ import math
 import os
 import random
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
+
 import numpy as np
+from openai import OpenAI
 
 
 @dataclass
@@ -74,18 +76,8 @@ class AlgorithmProcessor:
     def __init__(self) -> None:
         # Seed a deterministic generator so that previews are reproducible for demo purposes.
         self._rng = random.Random(42)
-        self._model = os.environ.get("OPENAI_MODEL", "gpt-4.1")
-        self._client: Optional[object] = None
-        self._llm_status: Optional[str] = None
-
-        try:  # pragma: no cover - optional dependency guard
-            from openai import OpenAI  # type: ignore
-
-            self._client = OpenAI()
-        except ModuleNotFoundError:
-            self._llm_status = "Install openai>=1.6.1 and set OPENAI_API_KEY."
-        except Exception as exc:  # pragma: no cover - environment specific
-            self._llm_status = f"Failed to initialize OpenAI client: {exc}"
+        self._client = OpenAI()
+        self._model = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
 
     def process(self, inputs: ProjectInputs) -> AlgorithmResult:
         pieces = self._generate_piece_plans(inputs)
@@ -144,10 +136,6 @@ class AlgorithmProcessor:
     ) -> str:
         """Invoke OpenAI to synthesize realistic engineering reasoning."""
 
-        if self._client is None:
-            hint = self._llm_status or "Install openai>=1.6.1 and set OPENAI_API_KEY."
-            return f"AI unavailable: {hint}"
-
         def _file_summary(items: List[UploadedFileMeta]) -> Dict[str, object]:
             return {
                 "count": len(items),
@@ -187,27 +175,50 @@ class AlgorithmProcessor:
         }
 
         context = json.dumps(payload, indent=2)
-        prompt = (
-            "You are ReBuild Intelligence, an adaptive reuse structural engineer. Provide rigorous, "
-            "practical guidance for cutting, reusing, and reinforcing salvaged materials. Using the "
-            "following JSON context, report on feasibility, reuse improvements, required new materials, "
-            "KUKA cutting strategy, hazard mitigation, and critique the cost/CO2 numbers. Reference the "
-            "values without inventing new numbers.\n\n"
+        system_prompt = (
+            "You are ReBuild Intelligence, an adaptive reuse structural engineer. "
+            "Provide rigorous, practical guidance for cutting, reusing, and reinforcing salvaged materials."
+        )
+        user_prompt = (
+            "Using the following project context, produce an engineering brief that includes: "
+            "(1) overall feasibility and critical warnings, (2) how to improve reuse ratios, "
+            "(3) KUKA cutting/handling strategies, (4) what must be newly fabricated versus reusable, "
+            "(5) hazard-specific mitigation aligned to the disaster data, and (6) critique of cost and CO2 numbers.\n"
+            "Reference actual values from the context without inventing new numbers.\n"
             f"Context:\n{context}"
         )
 
         try:
-            response = self._client.responses.create(  # type: ignore[union-attr]
+            response = self._client.responses.create(
                 model=self._model,
-                input=[{"role": "user", "content": prompt}],
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
             )
-            output_text = getattr(response, "output_text", None)
-            if isinstance(output_text, str) and output_text.strip():
-                return output_text.strip()
+            text_chunks: List[str] = []
+            for item in getattr(response, "output", []) or []:
+                if getattr(item, "type", "") in {"output_text", "text"}:
+                    text_chunks.append(getattr(item, "text", ""))
+                elif getattr(item, "type", "") == "message":
+                    for content in getattr(item, "content", []) or []:
+                        if getattr(content, "type", "") == "text":
+                            text_chunks.append(getattr(content, "text", ""))
+            for choice in getattr(response, "choices", []) or []:
+                message = getattr(choice, "message", None)
+                if message and isinstance(getattr(message, "content", None), str):
+                    text_chunks.append(message.content)
+            final_text = "\n".join(chunk.strip() for chunk in text_chunks if chunk)
+            if final_text:
+                return final_text
         except Exception as exc:  # pragma: no cover - network failure fallback
-            return f"AI unavailable: {exc}"
+            return (
+                "AI engineering reasoning unavailable: "
+                "set OPENAI_API_KEY and OPENAI_MODEL to enable live synthesis. "
+                f"Details: {exc}"
+            )
 
-        return "AI unavailable: model returned no text."
+        return "AI engineering reasoning unavailable: empty response from model."
 
     # ------------------------------------------------------------------
     # Synthetic algorithm components
