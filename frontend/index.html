@@ -9,8 +9,13 @@
   </head>
   <body data-api-base="http://localhost:8000">
     <header>
-      <h1>ReBuild Intelligence</h1>
-      <p>Upload demolition intel and get adaptive reuse recommendations in minutes.</p>
+      <div class="title-row">
+        <div>
+          <h1>ReBuild Intelligence</h1>
+          <p>Upload demolition intel and get adaptive reuse recommendations in minutes.</p>
+        </div>
+        <div class="version-tag">Build <span id="app-version">—</span></div>
+      </div>
     </header>
 
     <main>
@@ -69,7 +74,10 @@
             <input type="file" name="scan_files" multiple />
           </div>
 
-          <button type="submit">Run algorithm</button>
+          <div class="button-row">
+            <button type="submit">Run algorithm</button>
+            <button type="button" id="load-test-data">Load test data</button>
+          </div>
         </form>
       </section>
 

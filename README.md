@@ -27,7 +27,8 @@ Prototype stack for uploading demolition intelligence, running a synthetic AI al
    python -m http.server 5173
    ```
 2. Open http://localhost:5173 and submit the form. The UI streams files to the backend, renders analytics cards, and shows a 3D voxelised interpretation of the pieces.
-3. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
+3. Use the “Load test data” button if you just want to pre-fill the form with representative demo metadata before running the algorithm. The header also shows the current build version so it is obvious which frontend bundle you are running.
+4. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
 
 ## Algorithm mock
 The backend now runs a richer synthetic pipeline:

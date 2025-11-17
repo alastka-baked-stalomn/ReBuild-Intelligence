@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import math
+import os
 import random
 from dataclasses import dataclass, field
 from typing import Dict, List
 
 import numpy as np
+from openai import OpenAI
 
 
 @dataclass
@@ -64,6 +67,7 @@ class AlgorithmResult:
     cost_and_carbon: Dict[str, float]
     recommendations: List[str]
     material_feasibility: MaterialFeasibility
+    ai_engineering: str
 
 
 class AlgorithmProcessor:
@@ -72,6 +76,8 @@ class AlgorithmProcessor:
     def __init__(self) -> None:
         # Seed a deterministic generator so that previews are reproducible for demo purposes.
         self._rng = random.Random(42)
+        self._client = OpenAI()
+        self._model = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
 
     def process(self, inputs: ProjectInputs) -> AlgorithmResult:
         pieces = self._generate_piece_plans(inputs)
@@ -85,6 +91,15 @@ class AlgorithmProcessor:
         cost_and_carbon = self._estimate_cost_and_carbon(inputs, reuse_breakdown)
         recommendations = self._generate_recommendations(reuse_breakdown, inputs)
         material_feasibility = self._assess_material_feasibility(reuse_breakdown, inputs, pieces)
+        ai_engineering = self._run_llm_engineering(
+            inputs,
+            pieces,
+            reuse_breakdown,
+            structural_analysis,
+            disaster_simulation,
+            environmental_impact,
+            cost_and_carbon,
+        )
 
         summary = (
             f"Processed {inputs.project_name} with {len(inputs.files)} uploaded assets. "
@@ -106,7 +121,104 @@ class AlgorithmProcessor:
             cost_and_carbon=cost_and_carbon,
             recommendations=recommendations,
             material_feasibility=material_feasibility,
+            ai_engineering=ai_engineering,
         )
+
+    def _run_llm_engineering(
+        self,
+        inputs: ProjectInputs,
+        pieces: List[PiecePlan],
+        reuse: Dict[str, float],
+        structural: Dict[str, float],
+        disasters: Dict[str, str],
+        environmental: Dict[str, float],
+        cost: Dict[str, float],
+    ) -> str:
+        """Invoke OpenAI to synthesize realistic engineering reasoning."""
+
+        def _file_summary(items: List[UploadedFileMeta]) -> Dict[str, object]:
+            return {
+                "count": len(items),
+                "total_kb": round(sum(f.size_kb for f in items), 2),
+                "types": sorted({f.content_type for f in items}),
+                "filenames": [f.filename for f in items[:6]],
+            }
+
+        payload = {
+            "metadata": {
+                "project_name": inputs.project_name,
+                "description": inputs.description,
+                "transport_plan": inputs.transport_plan,
+                "site_location": inputs.site_location,
+                "soil_profile": inputs.soil_profile,
+                "hazard_profile": inputs.hazard_profile,
+                "demolition_notes": inputs.demolition_notes,
+            },
+            "asset_files": _file_summary(inputs.files),
+            "scan_files": _file_summary(inputs.scans),
+            "piece_plans": [
+                {
+                    "id": piece.piece_id,
+                    "mass_kg": piece.mass_kg,
+                    "center_of_mass": piece.center_of_mass,
+                    "reuse_score": piece.reuse_score,
+                    "optimal_cut_angle": piece.optimal_cut_angle,
+                    "waste_reduction": piece.waste_reduction,
+                }
+                for piece in pieces
+            ],
+            "reuse_breakdown": reuse,
+            "structural_analysis": structural,
+            "disaster_simulation": disasters,
+            "environmental_impact": environmental,
+            "cost_and_carbon": cost,
+        }
+
+        context = json.dumps(payload, indent=2)
+        system_prompt = (
+            "You are ReBuild Intelligence, an adaptive reuse structural engineer. "
+            "Provide rigorous, practical guidance for cutting, reusing, and reinforcing salvaged materials."
+        )
+        user_prompt = (
+            "Using the following project context, produce an engineering brief that includes: "
+            "(1) overall feasibility and critical warnings, (2) how to improve reuse ratios, "
+            "(3) KUKA cutting/handling strategies, (4) what must be newly fabricated versus reusable, "
+            "(5) hazard-specific mitigation aligned to the disaster data, and (6) critique of cost and CO2 numbers.\n"
+            "Reference actual values from the context without inventing new numbers.\n"
+            f"Context:\n{context}"
+        )
+
+        try:
+            response = self._client.responses.create(
+                model=self._model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            text_chunks: List[str] = []
+            for item in getattr(response, "output", []) or []:
+                if getattr(item, "type", "") in {"output_text", "text"}:
+                    text_chunks.append(getattr(item, "text", ""))
+                elif getattr(item, "type", "") == "message":
+                    for content in getattr(item, "content", []) or []:
+                        if getattr(content, "type", "") == "text":
+                            text_chunks.append(getattr(content, "text", ""))
+            for choice in getattr(response, "choices", []) or []:
+                message = getattr(choice, "message", None)
+                if message and isinstance(getattr(message, "content", None), str):
+                    text_chunks.append(message.content)
+            final_text = "\n".join(chunk.strip() for chunk in text_chunks if chunk)
+            if final_text:
+                return final_text
+        except Exception as exc:  # pragma: no cover - network failure fallback
+            return (
+                "AI engineering reasoning unavailable: "
+                "set OPENAI_API_KEY and OPENAI_MODEL to enable live synthesis. "
+                f"Details: {exc}"
+            )
+
+        return "AI engineering reasoning unavailable: empty response from model."
 
     # ------------------------------------------------------------------
     # Synthetic algorithm components
