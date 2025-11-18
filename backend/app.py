@@ -4,13 +4,17 @@ import os
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, File, Form, UploadFile
+import logging
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
 
 from algorithm.processor import AlgorithmProcessor, ProjectInputs, UploadedFileMeta
 from algorithm.obj_exporter import pieces_to_obj
+
+logging.basicConfig(level=logging.INFO)
 
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,6 +48,7 @@ def _save_files(files: List[UploadFile], subdir: str) -> List[UploadedFileMeta]:
                 filename=file.filename,
                 content_type=file.content_type or "application/octet-stream",
                 size_kb=round(len(contents) / 1024, 2),
+                path=str(path),
             )
         )
     return saved
