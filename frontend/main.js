@@ -6,6 +6,7 @@ const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const versionEl = document.getElementById('app-version');
 const testButton = document.getElementById('load-test-data');
+const exportButton = document.getElementById('export-obj');
 const apiBase =
   document.body.dataset.apiBase || `${window.location.protocol}//${window.location.hostname}:8000`;
 
@@ -118,6 +119,23 @@ function createKeyValueList(source = {}, emptyLabel = 'No values computed yet') 
     dl.append(dt, dd);
   });
   return dl;
+}
+
+function createProjectFormData() {
+  const formData = new FormData(form);
+  const assetInput = form.querySelector('input[name="asset_files"]');
+  const scanInput = form.querySelector('input[name="scan_files"]');
+
+  if (assetInput?.files?.length) {
+    formData.delete('asset_files');
+    Array.from(assetInput.files).forEach((file) => formData.append('asset_files', file));
+  }
+  if (scanInput?.files?.length) {
+    formData.delete('scan_files');
+    Array.from(scanInput.files).forEach((file) => formData.append('scan_files', file));
+  }
+
+  return formData;
 }
 
 function createPieceTable(pieces = []) {
@@ -266,6 +284,35 @@ if (testButton) {
   });
 }
 
+if (exportButton) {
+  exportButton.addEventListener('click', async () => {
+    setStatus('Preparing OBJ export...');
+    try {
+      const formData = createProjectFormData();
+      const response = await fetch(`${apiBase}/api/export-obj`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Export failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'pieces.obj';
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus('OBJ export downloaded.');
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : 'Unexpected error';
+      setStatus(`Failed to export OBJ. ${message}`, true);
+    }
+  });
+}
+
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle('error', Boolean(isError));
@@ -276,18 +323,7 @@ async function submitForm(event) {
   setStatus('Uploading and running simulations...');
   resultsEl.innerHTML = '';
 
-  const formData = new FormData(form);
-  const assetInput = form.querySelector('input[name="asset_files"]');
-  const scanInput = form.querySelector('input[name="scan_files"]');
-
-  if (assetInput?.files?.length) {
-    formData.delete('asset_files');
-    Array.from(assetInput.files).forEach((file) => formData.append('asset_files', file));
-  }
-  if (scanInput?.files?.length) {
-    formData.delete('scan_files');
-    Array.from(scanInput.files).forEach((file) => formData.append('scan_files', file));
-  }
+  const formData = createProjectFormData();
 
   try {
     const response = await fetch(`${apiBase}/api/process`, {
