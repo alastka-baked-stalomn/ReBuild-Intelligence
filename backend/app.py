@@ -6,10 +6,11 @@ from typing import List
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
 
 from algorithm.processor import AlgorithmProcessor, ProjectInputs, UploadedFileMeta
+from algorithm.obj_exporter import pieces_to_obj
 
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -81,6 +82,46 @@ async def process_project(
 
     result = processor.process(inputs)
     return JSONResponse(jsonable_encoder(result))
+
+
+@app.post("/api/export-obj")
+async def export_obj(
+    project_name: str = Form(...),
+    description: str = Form(...),
+    transport_plan: str = Form(""),
+    human_built: str = Form("true"),
+    site_location: str = Form(""),
+    soil_profile: str = Form(""),
+    hazard_profile: str = Form(""),
+    demolition_notes: str = Form(""),
+    lidar_notes: str = Form(""),
+    asset_files: List[UploadFile] = File(default_factory=list),
+    scan_files: List[UploadFile] = File(default_factory=list),
+):
+    asset_meta = _save_files(asset_files, "assets")
+    scan_meta = _save_files(scan_files, "scans")
+
+    inputs = ProjectInputs(
+        project_name=project_name,
+        description=description,
+        transport_plan=transport_plan,
+        human_built=human_built.lower() in {"true", "1", "yes"},
+        site_location=site_location,
+        soil_profile=soil_profile,
+        hazard_profile=hazard_profile,
+        demolition_notes=demolition_notes,
+        lidar_notes=lidar_notes,
+        files=asset_meta,
+        scans=scan_meta,
+    )
+
+    result = processor.process(inputs)
+    obj_string = pieces_to_obj(result.piece_plans)
+    return Response(
+        content=obj_string,
+        media_type="text/plain",
+        headers={"Content-Disposition": "attachment; filename=export.obj"},
+    )
 
 
 @app.get("/api/health")
