@@ -286,10 +286,12 @@ if (testButton) {
 
 if (exportButton) {
   exportButton.addEventListener('click', async () => {
-    setStatus('Preparing printable OBJ archive...');
+    setStatus('Preparing OBJ export...');
     try {
-      const response = await fetch(`${apiBase}/api/export/obj`, {
+      const formData = createProjectFormData();
+      const response = await fetch(`${apiBase}/api/export-obj`, {
         method: 'POST',
+        body: formData,
       });
       if (!response.ok) {
         const text = await response.text();
@@ -299,10 +301,10 @@ if (exportButton) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'pieces.zip';
+      a.download = 'pieces.obj';
       a.click();
       URL.revokeObjectURL(url);
-      setStatus('OBJ archive downloaded.');
+      setStatus('OBJ export downloaded.');
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : 'Unexpected error';

@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
 
 from algorithm.processor import AlgorithmProcessor, ProjectInputs, UploadedFileMeta
+from algorithm.obj_exporter import pieces_to_obj
 
 logging.basicConfig(level=logging.INFO)
 
@@ -88,21 +89,43 @@ async def process_project(
     return JSONResponse(jsonable_encoder(result))
 
 
-@app.post("/api/export/obj")
-async def export_geometry() -> Response:
-    if not processor.has_cached_project():
-        raise HTTPException(
-            status_code=400,
-            detail="Run /api/process at least once before requesting an OBJ export.",
-        )
-    try:
-        archive = processor.build_geometry_archive()
-    except Exception as exc:  # pragma: no cover - runtime safeguard
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+@app.post("/api/export-obj")
+async def export_obj(
+    project_name: str = Form(...),
+    description: str = Form(...),
+    transport_plan: str = Form(""),
+    human_built: str = Form("true"),
+    site_location: str = Form(""),
+    soil_profile: str = Form(""),
+    hazard_profile: str = Form(""),
+    demolition_notes: str = Form(""),
+    lidar_notes: str = Form(""),
+    asset_files: List[UploadFile] = File(default_factory=list),
+    scan_files: List[UploadFile] = File(default_factory=list),
+):
+    asset_meta = _save_files(asset_files, "assets")
+    scan_meta = _save_files(scan_files, "scans")
+
+    inputs = ProjectInputs(
+        project_name=project_name,
+        description=description,
+        transport_plan=transport_plan,
+        human_built=human_built.lower() in {"true", "1", "yes"},
+        site_location=site_location,
+        soil_profile=soil_profile,
+        hazard_profile=hazard_profile,
+        demolition_notes=demolition_notes,
+        lidar_notes=lidar_notes,
+        files=asset_meta,
+        scans=scan_meta,
+    )
+
+    result = processor.process(inputs)
+    obj_string = pieces_to_obj(result.piece_plans)
     return Response(
-        content=archive,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=pieces.zip"},
+        content=obj_string,
+        media_type="text/plain",
+        headers={"Content-Disposition": "attachment; filename=export.obj"},
     )
 
 
