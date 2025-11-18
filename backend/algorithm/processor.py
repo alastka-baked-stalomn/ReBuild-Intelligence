@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import colorsys
+import io
 import json
 import math
 import os
 import random
+import zipfile
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
 from openai import OpenAI
+
+from .geometry_pipeline import GeometryPipeline, PieceGeometry
+
+import logging
 
 
 @dataclass
@@ -16,6 +24,7 @@ class UploadedFileMeta:
     filename: str
     content_type: str
     size_kb: float
+    path: Optional[str] = None
 
 
 @dataclass
@@ -79,6 +88,9 @@ class AlgorithmProcessor:
         api_key = os.getenv("OPENAI_API_KEY")
         self._client: Optional[OpenAI] = OpenAI(api_key=api_key) if api_key else None
         self._model = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._last_inputs: Optional[ProjectInputs] = None
+        self._last_result: Optional[AlgorithmResult] = None
 
     def process(self, inputs: ProjectInputs) -> AlgorithmResult:
         pieces = self._generate_piece_plans(inputs)
@@ -108,7 +120,7 @@ class AlgorithmProcessor:
             "while KUKA cutting plans cover every salvaged piece."
         )
 
-        return AlgorithmResult(
+        result = AlgorithmResult(
             project_name=inputs.project_name,
             summary=summary,
             piece_plans=pieces,
@@ -124,6 +136,9 @@ class AlgorithmProcessor:
             material_feasibility=material_feasibility,
             ai_engineering=ai_engineering,
         )
+        self._last_inputs = inputs
+        self._last_result = result
+        return result
 
     def _run_llm_engineering(
         self,
@@ -428,3 +443,103 @@ class AlgorithmProcessor:
             recycled_ratio=round(recycled_ratio, 2),
             roof_new_pct=reuse["roof_new_pct"],
         )
+
+    # ------------------------------------------------------------------
+    # Geometry export helpers
+    def has_cached_project(self) -> bool:
+        return self._last_inputs is not None and self._last_result is not None
+
+    def build_geometry_archive(self) -> bytes:
+        if not self.has_cached_project():
+            raise RuntimeError("No processed project available for export.")
+        assert self._last_inputs and self._last_result
+        scan_paths = [
+            Path(meta.path)
+            for meta in self._last_inputs.scans
+            if getattr(meta, "path", None)
+        ]
+        geometries = GeometryPipeline.build_piece_meshes(
+            self._last_result.piece_plans,
+            scan_paths,
+        )
+        if not geometries:
+            raise RuntimeError("Algorithm did not generate any salvageable pieces.")
+        archive = self._package_meshes(geometries)
+        return archive
+
+    def _package_meshes(self, geometries: List[PieceGeometry]) -> bytes:
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("pieces/materials.mtl", self._build_material_library(geometries))
+            for geom in geometries:
+                name = self._sanitize_piece_id(geom.piece_id)
+                archive.writestr(f"pieces/{name}.obj", self._mesh_to_obj(geom.mesh, name))
+            archive.writestr("pieces/assembly.obj", self._build_assembly_obj(geometries))
+        buffer.seek(0)
+        project = self._last_result.project_name if self._last_result else "unknown"
+        self._logger.info(
+            "Prepared OBJ archive for project '%s' (%d pieces)", project, len(geometries)
+        )
+        return buffer.getvalue()
+
+    def _build_material_library(self, geometries: List[PieceGeometry]) -> str:
+        lines: List[str] = []
+        for idx, geom in enumerate(geometries):
+            name = self._sanitize_piece_id(geom.piece_id)
+            r, g, b = self._color_from_index(idx)
+            lines.extend(
+                [
+                    f"newmtl {name}",
+                    f"Kd {r:.3f} {g:.3f} {b:.3f}",
+                    "Ka 0.000 0.000 0.000",
+                    "Ks 0.200 0.200 0.200",
+                    "d 1.0",
+                    "",
+                ]
+            )
+        return "\n".join(lines).strip() + "\n"
+
+    def _mesh_to_obj(self, mesh: object, name: str) -> str:
+        if hasattr(mesh, "vertices") and hasattr(mesh, "faces"):
+            vertices = np.asarray(mesh.vertices, dtype=float)
+            faces = np.asarray(mesh.faces, dtype=int)
+        else:  # pragma: no cover - defensive
+            raise ValueError("Mesh object is missing vertices/faces")
+        lines = ["mtllib materials.mtl", f"o {name}", f"usemtl {name}"]
+        for vx, vy, vz in vertices:
+            lines.append(f"v {vx:.6f} {vy:.6f} {vz:.6f}")
+        for face in faces:
+            a, b, c = (int(face[0]) + 1, int(face[1]) + 1, int(face[2]) + 1)
+            lines.append(f"f {a} {b} {c}")
+        return "\n".join(lines) + "\n"
+
+    def _build_assembly_obj(self, geometries: List[PieceGeometry]) -> str:
+        lines = ["mtllib materials.mtl"]
+        vertex_offset = 0
+        for geom in geometries:
+            name = self._sanitize_piece_id(geom.piece_id)
+            verts = np.asarray(geom.mesh.vertices, dtype=float)
+            faces = np.asarray(geom.mesh.faces, dtype=int)
+            lines.append(f"o {name}")
+            lines.append(f"usemtl {name}")
+            for vx, vy, vz in verts:
+                lines.append(f"v {vx:.6f} {vy:.6f} {vz:.6f}")
+            for face in faces:
+                a, b, c = (
+                    int(face[0]) + 1 + vertex_offset,
+                    int(face[1]) + 1 + vertex_offset,
+                    int(face[2]) + 1 + vertex_offset,
+                )
+                lines.append(f"f {a} {b} {c}")
+            vertex_offset += len(verts)
+        return "\n".join(lines) + "\n"
+
+    def _color_from_index(self, idx: int) -> tuple[float, float, float]:
+        hue = (idx * 0.175) % 1.0
+        r, g, b = colorsys.hsv_to_rgb(hue, 0.55, 0.9)
+        return r, g, b
+
+    @staticmethod
+    def _sanitize_piece_id(piece_id: str) -> str:
+        safe = piece_id.replace(" ", "-").lower()
+        return safe or "piece"

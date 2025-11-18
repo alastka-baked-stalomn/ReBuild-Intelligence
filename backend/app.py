@@ -4,12 +4,16 @@ import os
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, File, Form, UploadFile
+import logging
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
 
 from algorithm.processor import AlgorithmProcessor, ProjectInputs, UploadedFileMeta
+
+logging.basicConfig(level=logging.INFO)
 
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -43,6 +47,7 @@ def _save_files(files: List[UploadFile], subdir: str) -> List[UploadedFileMeta]:
                 filename=file.filename,
                 content_type=file.content_type or "application/octet-stream",
                 size_kb=round(len(contents) / 1024, 2),
+                path=str(path),
             )
         )
     return saved
@@ -81,6 +86,24 @@ async def process_project(
 
     result = processor.process(inputs)
     return JSONResponse(jsonable_encoder(result))
+
+
+@app.post("/api/export/obj")
+async def export_geometry() -> Response:
+    if not processor.has_cached_project():
+        raise HTTPException(
+            status_code=400,
+            detail="Run /api/process at least once before requesting an OBJ export.",
+        )
+    try:
+        archive = processor.build_geometry_archive()
+    except Exception as exc:  # pragma: no cover - runtime safeguard
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=pieces.zip"},
+    )
 
 
 @app.get("/api/health")
