@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ReBuild Intelligence</title>
     <link rel="stylesheet" href="styles.css" />
-    <script src="three.min.js"></script>
   </head>
   <body data-api-base="http://localhost:8000">
     <header>
@@ -27,7 +26,7 @@
           </div>
           <div class="field-group">
             <label>Building description</label>
-            <textarea name="description" rows="4" required placeholder="Architectural intent, transport plan, robotic constraints..."></textarea>
+            <textarea name="description" rows="4" required placeholder="Architectural intent, transport plans, robotic constraints..."></textarea>
           </div>
           <div class="field-grid">
             <div>
@@ -94,6 +93,6 @@
       <p>Prototype for robotic reuse planning &mdash; includes CO₂ and cost analytics.</p>
     </footer>
 
-    <script src="main.js"></script>
+    <script type="module" src="main.js"></script>
   </body>
 </html>
