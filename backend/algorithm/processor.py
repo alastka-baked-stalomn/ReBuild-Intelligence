@@ -5,7 +5,7 @@ import math
 import os
 import random
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 from openai import OpenAI
@@ -76,7 +76,8 @@ class AlgorithmProcessor:
     def __init__(self) -> None:
         # Seed a deterministic generator so that previews are reproducible for demo purposes.
         self._rng = random.Random(42)
-        self._client = OpenAI()
+        api_key = os.getenv("OPENAI_API_KEY")
+        self._client: Optional[OpenAI] = OpenAI(api_key=api_key) if api_key else None
         self._model = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
 
     def process(self, inputs: ProjectInputs) -> AlgorithmResult:
@@ -135,6 +136,12 @@ class AlgorithmProcessor:
         cost: Dict[str, float],
     ) -> str:
         """Invoke OpenAI to synthesize realistic engineering reasoning."""
+
+        if not self._client:
+            return (
+                "AI engineering reasoning unavailable. Set OPENAI_API_KEY "
+                "to enable OpenAI-assisted commentary."
+            )
 
         def _file_summary(items: List[UploadedFileMeta]) -> Dict[str, object]:
             return {

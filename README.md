@@ -30,12 +30,12 @@ Prototype stack for uploading demolition intelligence, running a synthetic AI al
 3. Use the “Load test data” button if you just want to pre-fill the form with representative demo metadata before running the algorithm. The header also shows the current build version so it is obvious which frontend bundle you are running.
 4. If the frontend is served from another host (for example, a different machine or via a tunnel), update the `data-api-base` attribute on the `<body>` tag inside `frontend/index.html` so that it points to the reachable backend URL (the script falls back to `http(s)://<current-host>:8000`).
 
-## Algorithm mock
-The backend now runs a richer synthetic pipeline:
+## Algorithm pipeline
+The backend runs a deterministic synthetic pipeline that captures the key signals the real system will eventually provide:
 - Center of mass, waste and reuse score per salvaged piece, plus detailed KUKA cutting plans.
 - Material feasibility reasoning that flags which elements can be reclaimed, which must be new (e.g. adaptive roofs), and how to tweak plans to increase recycled share.
 - Natural disaster simulations paired with sound/light pollution estimates so you can judge flood, wind, noise, and glare constraints.
 - Structural analytics augmented with deterministic finite element outputs (node stresses, displacement, utilisation).
 - Full cost, carbon, and CO₂ savings accounting including the value of reclaimed stock.
 
-All calculations remain deterministic which keeps demos consistent even while we fake AI-driven intelligence.
+All calculations remain deterministic which keeps demos consistent even while we fake AI-driven intelligence. When `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) are configured in the backend environment, the pipeline makes a single call to the OpenAI Responses API to layer additional engineering commentary on top of the deterministic metrics. If the key is absent, the API still succeeds and simply returns the deterministic results without the AI commentary.
